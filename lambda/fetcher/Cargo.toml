@@ -1,0 +1,31 @@
+[package]
+name = "fetcher"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "fetcher"
+path = "src/main.rs"
+
+[dependencies]
+lambda_runtime = "0.14.4"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+futures = "0.3"
+
+serde = { version = "1", features = ["derive"] }
+serde_json = "1.0"
+
+aws-config = { version = "1.1", features = ["behavior-version-latest"] }
+aws-sdk-dynamodb = "1.11"
+
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+
+time = { version = "0.3", features = ["formatting", "parsing"] }
+chrono = "0.4"
+
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+anyhow = "1.0"
+
+rand = "0.9.2"
