@@ -1,0 +1,6 @@
+[workspace]
+members = [
+    "lambda/fetcher",
+]
+
+resolver = "2"
