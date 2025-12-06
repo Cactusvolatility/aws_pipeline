@@ -3,6 +3,10 @@
 *.tfstate.*
 .terraform/
 .terraform.lock.hcl
+terraform.tfvars 
+*.tfvars 
+*.auto.tfvars
+
 
 # Rust
 target/
