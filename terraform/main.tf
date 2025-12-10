@@ -95,6 +95,25 @@ resource "aws_iam_role_policy_attachment" "lambda_basic" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
+data "aws_iam_policy_document" "s3_access" {
+  statement {
+    effect = "Allow"
+    actions = [
+      "s3:PutObject",
+      "s3:PutObjectAcl",
+    ]
+    resources = [
+      "${aws_s3_bucket.data_lake.arn}/*"
+    ]
+  }
+}
+
+resource "aws_iam_role_policy" "s3_access" {
+  name   = "s3-access"
+  role   = aws_iam_role.lambda_role.id
+  policy = data.aws_iam_policy_document.s3_access.json
+}
+
 # Lambda
 
 resource "aws_lambda_function" "fetcher" {
@@ -110,9 +129,11 @@ resource "aws_lambda_function" "fetcher" {
   environment {
     variables = {
       DYNAMODB_TABLE = aws_dynamodb_table.ticker_state.name
-      TICKERS        = "SPY,NVDA,MSFT,AAPL,AMZN,META,AVGO,GOOGL,GOOG,TSLA,BRK-B,WMT,ORCL,JPM,LLY,V,NFLX,MA,XOM,JNJ,PLTR,COST,ABBV,AMD,BAC,HD,PG,UNH,GE,CVX,KO,WFC,CSCO,IBM,MS,TMUS"
+      S3_BUCKET = aws_s3_bucket.data_lake.id
+      TICKERS        = "TSM,INTC,UMC,GFS,MU,AMD"
       BUILD_TIME     = timestamp()
-      TIINGO_API_KEY = "dummy"
+      TIINGO_API_KEY = var.tiingo_api_key
+      FMP_API_KEY = var.fmp_api_key
     }
   }
 

@@ -3,3 +3,14 @@ variable "enable_ingestion" {
   type = bool
   default = false
 }
+
+variable "tiingo_api_key" {
+  type      = string
+  sensitive = true
+}
+
+variable "fmp_api_key" {
+  type      = string
+  sensitive = true
+}
+
