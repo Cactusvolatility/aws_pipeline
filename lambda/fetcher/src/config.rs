@@ -4,10 +4,14 @@ use anyhow::Result;
 pub struct Config {
     pub tiingo_api_key: String,
     pub fmp_api_key: String,
-    pub tickers: Vec<String>,
+    pub tickers: Vec<String>, 
+        // no longer parse tickers since Tiingo can batch pull
+        // FMP may need to parse tickers
+    pub batch_tickers: String,
     pub dynamo_table: String,
     pub s3_bucket: String,
     pub max_concurrency: usize,
+    // FMP does not allow batch so we will still need concurrency there
 }
 
 impl Config {
@@ -17,6 +21,7 @@ impl Config {
             tiingo_api_key: std::env::var("TIINGO_API_KEY")?,
             fmp_api_key: std::env::var("FMP_API_KEY")?,
             tickers: parse_tickers()?,
+            batch_tickers: std::env::var("TICKERS")?,
             dynamo_table: std::env::var("DYNAMODB_TABLE")?,
             s3_bucket: std::env::var("S3_BUCKET")?,
             max_concurrency: 10,

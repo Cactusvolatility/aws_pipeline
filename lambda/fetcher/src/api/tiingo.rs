@@ -1,6 +1,6 @@
 use anyhow::{Result, Context};
 use reqwest::Client;
-use crate::models::TiingoBar;
+use crate::models::{TiingoBar, TiingoBook};
 
 /* 
     Since we're no longer writing to DynamoDB directly and instead downloading to S3 we simplify the process
@@ -9,6 +9,24 @@ use crate::models::TiingoBar;
         1. change to 1 min microbatch
         2. change backfill to just pull from date to curr
 */
+
+pub async fn fetch_book (
+    client:&Client,
+    tickers: &str,
+    api_key: &str,
+) -> Result<Vec<TiingoBook>> {
+
+    let url = format!(
+        "https://api.tiingo.com/iex/?tickers={tickers}&token={api_key}"
+    );
+
+    let resp = client.get(&url).send().await
+        .context("Failed to fetch data for batch job")?;
+
+    let batch: Vec<TiingoBook> = resp.json().await?;
+    println!("fetch_book: parsed to TiingoBook struct");
+    Ok(batch)
+}
 
 /*
     Additional inputs can be found at:
@@ -36,10 +54,10 @@ pub async fn fetch_backfill (
     let resp = resp.error_for_status()
         .context(format!("API returned error for {}", ticker))?;
 
-    println!("fetch_intraday: received json");
+    println!("fetch_backfill: received json");
     
     let bars: Vec<TiingoBar> = resp.json().await?;
-    println!("fetch_intraday: parsed to TiingoBar Struct");
+    println!("fetch_backfill: parsed to TiingoBar Struct");
     Ok(bars)
 }
 

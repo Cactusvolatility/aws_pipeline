@@ -34,6 +34,25 @@ impl App {
             config,
         })
     }
+
+    pub async fn run_minute(&self) -> Result<()> {
+
+        let books = api::tiingo::fetch_book(
+            &self.clients.http, 
+            &self.config.batch_tickers, 
+            &self.config.tiingo_api_key,
+        ).await?;
+
+        if !books.is_empty() {
+            aws::s3::write_book_s3(
+                &self.clients.s3, 
+                &self.config.s3_bucket, 
+                &books,
+            ).await?;
+        }
+        
+        Ok(())
+    }
     
 
     pub async fn run_ingest(&self, start_date: String, end_date: Option<String>) -> Result<()> {
@@ -118,7 +137,7 @@ impl App {
     ) -> Result<(Vec<TickerBar>, Option<String>)> {
         
         println!("Process_ticker: fetching_intraday");
-        // Fetch from Tiingo API (errors propagate here : ?)
+
         let api_bars = api::tiingo::fetch_backfill(
                 &self.clients.http,
                 ticker,

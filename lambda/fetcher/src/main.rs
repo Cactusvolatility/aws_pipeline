@@ -2,7 +2,7 @@ use aws_config::{imds::client, BehaviorVersion};
 use lambda_runtime::{run, service_fn, Error, LambdaEvent};
 use serde_json::Value;
 use std::sync::Arc;
-use chrono::NaiveDate;
+use chrono::{NaiveDate, Utc};
 
 use crate::models::BackfillEvent;
 
@@ -41,16 +41,29 @@ async fn handler(
 
     if let Some(start_date) = payload.start_date {
         println!("provided start date - running backfill");
-        parse_date(&start_date)?;
+        let start = parse_date(&start_date)?;
+        let today = Utc::now().date_naive();
+
+        if start > today {
+            return Err("start must be <= to today".into())
+        }
     
         if let Some(ref end_date) = payload.end_date {
-            parse_date(end_date)?;
+            let end = parse_date(end_date)?;
+
+            if end < start {
+                return Err("end must be after start".into());
+            }
+
+            if end > today {
+                return Err("end must be before today".into())
+            }
         }
         app.run_ingest(start_date, payload.end_date).await?;
     }
     else {
-        println!("implement run_minte");
-        //app.run_minute().await?;
+        //println!("implement run_minute");
+        app.run_minute().await?;
     }
 
     Ok(serde_json::json!({"status": "success"}))

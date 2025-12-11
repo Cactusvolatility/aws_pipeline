@@ -33,3 +33,46 @@ pub struct TickerBar {
     pub volume: f64,
 }
 
+// CamelCase
+#[derive(Debug, Deserialize)]
+pub struct TiingoBook {
+    pub ticker: String,
+    pub timestamp: String,
+
+    #[serde(default)]
+    pub lastSaleTimestamp: Option<String>,
+
+    #[serde(default)]
+    pub quoteTimestamp: Option<String>,
+
+    pub open: f64,
+    pub high: f64,
+    pub low: f64,
+
+    #[serde(default)]
+    pub mid: Option<f64>,
+
+    pub tngoLast: f64,
+
+    #[serde(default)]
+    pub last: Option<f64>,
+
+    #[serde(default)]
+    pub lastSize: Option<i64>,
+
+    #[serde(default)]
+    pub bidSize: Option<i64>,
+
+    #[serde(default)]
+    pub bidPrice: Option<f64>,
+
+    #[serde(default)]
+    pub askPrice: Option<f64>,
+
+    #[serde(default)]
+    pub askSize: Option<i64>,
+
+    pub volume: i64,
+    pub prevClose: f64,
+}
+
