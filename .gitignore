@@ -22,3 +22,7 @@ __pycache__/
 
 # Build
 dist/
+
+# JSON
+response.json
+*event.json
