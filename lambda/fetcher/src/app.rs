@@ -1,5 +1,5 @@
 use crate::{api, config::Config, models::*, aws};
-use anyhow::Result;
+use anyhow::{Result,bail};
 use aws_config::BehaviorVersion;
 use futures::future::Shared;
 use futures::stream:: {self, StreamExt};
@@ -35,12 +35,15 @@ impl App {
         })
     }
     
-    pub async fn run_minute_ingest(&self) -> Result<()> {
+
+    pub async fn run_ingest(&self, start_date: String, end_date: Option<String>) -> Result<()> {
         let results: Vec<_> = stream::iter(self.config.tickers.clone())
             .map(|ticker| {
                 let app = self.clone();
+                let start = start_date.clone();
+                let end = end_date.clone();
                 async move {
-                    let result = app.process_ticker(&ticker).await;
+                    let result = app.process_ticker(&ticker, start, end).await;
                     (ticker, result)
                 }
             })
@@ -60,7 +63,7 @@ impl App {
 
                 Err(e) => {
                     eprintln!("Ticker {} failed: {}", ticker, e);
-                    
+                    /*
                     // Try to update failure state, but don't fail Lambda if this fails
                     if let Err(e2) = aws::dynamo::update_on_failure(
                         &self.clients.dynamo,
@@ -72,6 +75,7 @@ impl App {
                     {
                         eprintln!("Failed dynamo update failure state for {}: {}", ticker, e2);
                     }
+                    */
                 }
             }
         }
@@ -87,6 +91,7 @@ impl App {
         }
         
         // Update DynamoDB for successful tickers
+        /* 
         for (ticker, last_ts) in successes {
             if let Err(e)  = aws::dynamo::save_next_ts(
                 &self.clients.dynamo,
@@ -99,34 +104,34 @@ impl App {
                 eprintln!("failed on saving timestamp for {} : {}", ticker, e);
             }
         }
+        */
         
         Ok(())
     }
     
 
-    async fn process_ticker(&self, ticker: &str) -> Result<(Vec<TickerBar>, String)> {
-        // Load last timestamp
-        let start_ts = aws::dynamo::load_next_ts(
-            &self.clients.dynamo,
-            &self.config.dynamo_table,
-            ticker,
-        )
-        .await?;
+    async fn process_ticker(
+        &self, 
+        ticker: &str, 
+        start_date: String, 
+        end_date: Option<String>
+    ) -> Result<(Vec<TickerBar>, Option<String>)> {
         
         println!("Process_ticker: fetching_intraday");
         // Fetch from Tiingo API (errors propagate here : ?)
-        let api_bars = api::tiingo::fetch_intraday(
-            &self.clients.http,
-            ticker,
-            &start_ts,
-            &self.config.tiingo_api_key,
-        )
+        let api_bars = api::tiingo::fetch_backfill(
+                &self.clients.http,
+                ticker,
+                &start_date,
+                end_date.as_deref(),
+                &self.config.tiingo_api_key,
+            )
         .await?;  // ← Error propagates up as Result::Err
         
         // TODO
             // consider Option<String>?
         if api_bars.is_empty() {
-            return Ok((Vec::new(), start_ts.to_string()));
+            return Ok((Vec::new(), Some("backfill result is empty".to_string())));
         }
         
         println!("process_ticker: converting from TiingoBar to TickerBar");
@@ -144,9 +149,6 @@ impl App {
             })
             .collect();
         
-        
-        let last_ts = ticker_bars.last().unwrap().date.clone();
-        
-        Ok((ticker_bars, last_ts))
+        Ok((ticker_bars, None))
     }
 }

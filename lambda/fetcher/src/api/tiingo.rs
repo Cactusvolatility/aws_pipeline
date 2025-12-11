@@ -10,17 +10,25 @@ use crate::models::TiingoBar;
         2. change backfill to just pull from date to curr
 */
 
-// individual pull with sample frequency for 1 minute
-pub async fn fetch_intraday (
+/*
+    Additional inputs can be found at:
+    https://www.tiingo.com/documentation/iex
+*/
+pub async fn fetch_backfill (
     client: &Client,
     ticker: &str,
-    start_ts: &str,
+    start_date: &str,
+    end_date: Option<&str>,
     api_key: &str,
 ) -> Result<Vec<TiingoBar>> {
-    let test_date = "2025-12-08";
-    let url = format!(
-        "https://api.tiingo.com/iex/{ticker}/prices?token={api_key}&startDate={test_date}&resampleFreq=1min&columns=date,close,high,low,open,volume"
+    //let test_date = "2025-12-08";
+    let mut url = format!(
+        "https://api.tiingo.com/iex/{ticker}/prices?token={api_key}&startDate={start_date}&resampleFreq=1min&columns=date,close,high,low,open,volume"
     );
+
+    if let Some(end) = end_date {
+        url.push_str(&format!("&endDate={end}"));
+    }
 
     let resp = client.get(&url).send().await
         .context(format!("Failed to fetch data for {}", ticker))?;
@@ -35,30 +43,3 @@ pub async fn fetch_intraday (
     Ok(bars)
 }
 
-/*
-    Additional inputs can be found at:
-    https://www.tiingo.com/documentation/iex
-*/
-
-pub async fn fetch_backfill (
-    client: &Client,
-    ticker: &str,
-    start_ts: &str,
-    api_key: &str,
-    freq: &str,
-) -> Result<Vec<TiingoBar>> {
-    let url = format!(
-        "https://api.tiingo.com/iex/{ticker}/prices?token={api_key}&startDate={start_ts}&resampleFreq={freq}&columns=date,close,high,low,open,volume"
-    );
-
-    //TODO:
-        // update backfill
-    let resp = client.get(&url).send().await
-        .context(format!("Failed to fetch data for {}", ticker))?;
-
-    let resp = resp.error_for_status()
-        .context(format!("API returned error for {}", ticker))?;
-    
-    let bars: Vec<TiingoBar> = resp.json().await?;
-    Ok(bars)
-}

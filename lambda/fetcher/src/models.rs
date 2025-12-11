@@ -1,8 +1,16 @@
 use serde::{Deserialize, Serialize};
-
 /*
     use to store different structs for data sources
 */
+
+#[derive(Deserialize, Default)]
+#[serde(default)]
+pub struct BackfillEvent {
+    pub mode: String,
+    pub start_date: Option<String>,
+    pub end_date: Option<String>,
+}
+
 
 #[derive(Debug, Deserialize)]
 pub struct TiingoBar {
