@@ -4,8 +4,12 @@ version = "0.1.0"
 edition = "2021"
 
 [[bin]]
-name = "fetcher"
-path = "src/main.rs"
+name = "tiingo_iex"
+path = "src/bin/tiingo_iex.rs"
+
+[[bin]]
+name = "fmp_news"
+path = "src/bin/fmp_news.rs"
 
 [dependencies]
 lambda_runtime = "0.14.4"
@@ -25,6 +29,7 @@ reqwest = { version = "0.12", default-features = false, features = ["json", "rus
 
 time = { version = "0.3", features = ["formatting", "parsing"] }
 chrono = "0.4"
+chrono-tz = "0.10"
 
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }

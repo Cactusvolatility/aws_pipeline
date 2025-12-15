@@ -38,41 +38,42 @@ pub struct TickerBar {
 pub struct TiingoBook {
     pub ticker: String,
     pub timestamp: String,
-
     #[serde(default)]
     pub lastSaleTimestamp: Option<String>,
-
     #[serde(default)]
     pub quoteTimestamp: Option<String>,
-
     pub open: f64,
     pub high: f64,
     pub low: f64,
-
     #[serde(default)]
     pub mid: Option<f64>,
-
     pub tngoLast: f64,
-
     #[serde(default)]
     pub last: Option<f64>,
-
     #[serde(default)]
     pub lastSize: Option<i64>,
-
     #[serde(default)]
     pub bidSize: Option<i64>,
-
     #[serde(default)]
     pub bidPrice: Option<f64>,
-
     #[serde(default)]
     pub askPrice: Option<f64>,
-
     #[serde(default)]
     pub askSize: Option<i64>,
-
     pub volume: i64,
     pub prevClose: f64,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct FmpNews {
+    pub symbol: String,
+    pub publishedDate:String,
+    pub publisher:String,
+    pub title:String,
+    #[serde(default)]
+    pub image: Option<String>,
+    pub site:String,
+    pub text:String,
+    pub url:String, 
 }
 

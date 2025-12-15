@@ -116,24 +116,50 @@ resource "aws_iam_role_policy" "s3_access" {
 
 # Lambda
 
-resource "aws_lambda_function" "fetcher" {
-  filename      = "../dist/fetcher/fetcher.zip"
-  function_name = "stock-fetcher"
+resource "aws_lambda_function" "tiingo_iex" {
+  filename      = "../dist/tiingo_iex/tiingo_iex.zip"
+  function_name = "tiingo-iex-ingest"
   role          = aws_iam_role.lambda_role.arn
   handler       = "bootstrap"
   runtime       = "provided.al2023"
   architectures = ["arm64"]
 
-  source_code_hash = filebase64sha256("../dist/fetcher/fetcher.zip")
+  source_code_hash = filebase64sha256("../dist/tiingo_iex/tiingo_iex.zip")
 
   environment {
     variables = {
       DYNAMODB_TABLE = aws_dynamodb_table.ticker_state.name
-      S3_BUCKET = aws_s3_bucket.data_lake.id
-      TICKERS        = "TSM,INTC,UMC,GFS,MU,AMD"
+      S3_BUCKET      = aws_s3_bucket.data_lake.id
+      TICKERS        = join(",", var.tickers)
       BUILD_TIME     = timestamp()
       TIINGO_API_KEY = var.tiingo_api_key
-      FMP_API_KEY = var.fmp_api_key
+      FMP_API_KEY    = var.fmp_api_key
+    }
+  }
+
+  dead_letter_config {
+    target_arn = aws_sqs_queue.fn_dlq.arn
+  }
+}
+
+resource "aws_lambda_function" "fmp_news" {
+  filename      = "../dist/fmp_news/fmp_news.zip"
+  function_name = "fmp-news-ingest"
+  role          = aws_iam_role.lambda_role.arn
+  handler       = "bootstrap"
+  runtime       = "provided.al2023"
+  architectures = ["arm64"]
+
+  source_code_hash = filebase64sha256("../dist/fmp_news/fmp_news.zip")
+
+  environment {
+    variables = {
+      DYNAMODB_TABLE = aws_dynamodb_table.ticker_state.name
+      S3_BUCKET      = aws_s3_bucket.data_lake.id
+      TICKERS        = join(",", var.tickers)
+      BUILD_TIME     = timestamp()
+      TIINGO_API_KEY = var.tiingo_api_key
+      FMP_API_KEY    = var.fmp_api_key
     }
   }
 
@@ -156,7 +182,11 @@ resource "aws_sqs_queue_policy" "fn_dlq_policy" {
       Action    = "sqs:SendMessage"
       Resource  = aws_sqs_queue.fn_dlq.arn
       Condition = {
-        ArnEquals = { "AWS:SourceArn" = aws_lambda_function.fetcher.arn }
+        ArnEquals = { "AWS:SourceArn" = [
+          aws_lambda_function.tiingo_iex.arn,
+          aws_lambda_function.fmp_news.arn
+          ]
+        }
       }
     }]
   })
@@ -199,15 +229,27 @@ resource "aws_s3_bucket_versioning" "data_lake" {
 
 # Scheduler
 
-resource "aws_cloudwatch_event_rule" "daily_fetch" {
-  name                = "daily-stock-fetch"
-  description         = "Trigger stock data fetch on weekdays"
+resource "aws_cloudwatch_event_rule" "tiingo_ingest" {
+  name                = "minute-book-pull"
+  description         = "Trigger tiingo minute top of the book pull"
   schedule_expression = var.enable_ingestion == true ? "cron(* * * * ? *)" : "cron(0 0 31 2 ? *)"
 }
 
-resource "aws_cloudwatch_event_target" "lambda_target" {
-  rule      = aws_cloudwatch_event_rule.daily_fetch.name
-  target_id = "StockDataFetcherTarget"
-  arn       = aws_lambda_function.fetcher.arn
+resource "aws_cloudwatch_event_target" "tiingo_target" {
+  rule      = aws_cloudwatch_event_rule.tiingo_ingest.name
+  target_id = "Tiingo-Ingest"
+  arn       = aws_lambda_function.tiingo_iex.arn
+}
+
+resource "aws_cloudwatch_event_rule" "fmp_fetch" {
+  name                = "fmp-news-fetch"
+  description         = "Trigger news collection every hour"
+  schedule_expression = var.enable_ingestion == true ? "cron(0 * * * ? *)" : "cron(0 0 31 2 ? *)"
+}
+
+resource "aws_cloudwatch_event_target" "fmp_target" {
+  rule      = aws_cloudwatch_event_rule.fmp_fetch.name
+  target_id = "FMP-Fetch"
+  arn       = aws_lambda_function.fmp_news.arn
 }
 

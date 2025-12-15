@@ -1,7 +1,8 @@
-use crate::models::{TickerBar, TiingoBook};
+use crate::models::{FmpNews, TickerBar, TiingoBook};
 use anyhow::{Ok, Result};
 use aws_sdk_s3::{primitives::ByteStream, Client as S3Client};
 use chrono::Utc;
+use chrono_tz::America::New_York;
 use std::sync::Arc;
 
 use arrow::array::{Float64Array, Int64Array, StringArray};
@@ -29,10 +30,10 @@ pub async fn write_tiingo_s3(
     // grab the first 10 digits of the 0-index value
         // TODO: check if edge case like over midnight or somethign ruins this (concurrent pull fails)
     let first_bar_date = &bars[0].date[..10];
-    let ts = Utc::now().format("%Y-%m-%d");
+    let ts = Utc::now().with_timezone(&New_York).format("%Y-%m-%d");
 
     let key = format!(
-        "prices/tiingo/date={}/bars_{}.parquet",
+        "prices/tiingo/date={}/raw/bars_{}.parquet",
         first_bar_date,
         ts,
     );
@@ -143,7 +144,7 @@ pub async fn write_book_s3(
         return Ok(());
     }
 
-    let datetime = Utc::now();
+    let datetime = Utc::now().with_timezone(&New_York);
     let date = datetime.format("%Y-%m-%d");
     let file_ts = datetime.format("%Y%m%d_%H%M%S");
 
@@ -306,5 +307,129 @@ fn serialize_books_parquet(books: &[TiingoBook]) -> Result<Vec<u8>> {
     writer.close()?;
 
     Ok(buffer)
+
+}
+
+pub async fn write_fmp_news_s3(
+    client: &S3Client,
+    bucket: &str,
+    news: &[FmpNews],
+) -> Result<()> {
+
+    if news.is_empty() {
+        println!("no fmp news?");
+        return Ok(());
+    }
+    
+    let datetime = Utc::now().with_timezone(&New_York);
+    let date = datetime.format("%Y-%m-%d");
+    let file_ts = datetime.format("%Y%m%d_%H%M%S");
+    
+    let key = format!(
+        "news/fmp/date={}/raw/news_{}.parquet",
+        date, file_ts
+    );
+    
+    let parquet_bytes = serialize_news_parquet(news)?;
+    
+    client
+        .put_object()
+        .bucket(bucket)
+        .key(&key)
+        .body(ByteStream::from(parquet_bytes))
+        .content_type("application/octet-stream")
+        .send()
+        .await?;
+    
+    Ok(())
+}
+
+/*
+    pub symbol: String,
+    pub publishedDate:String,
+    pub publisher:String,
+    pub title:String,
+    #[serde(default)]
+    pub image: Option<String>,
+    pub site:String,
+    pub text:String,
+    pub url:String, 
+*/
+fn serialize_news_parquet(news: &[FmpNews]) -> Result<Vec<u8>> {
+    let schema = Schema::new(vec![
+        Field::new("symbol", DataType::Utf8, false),
+        Field::new("publishedDate", DataType::Utf8, false),
+        Field::new("publisher", DataType::Utf8, false),
+        Field::new("title", DataType::Utf8, false),
+        // optional
+        Field::new("image", DataType::Utf8, true),
+        Field::new("site", DataType::Utf8, false),
+        // flatten?
+        Field::new("text", DataType::Utf8, false),
+        Field::new("url", DataType::Utf8, false),
+    ]);
+
+    let symbol: StringArray = news
+        .iter()
+        .map(|b| Some(b.symbol.as_str()))
+        .collect();
+
+    let publishedDate: StringArray = news
+        .iter()
+        .map(|b| Some(b.publishedDate.as_str()))
+        .collect();
+
+    let publisher: StringArray = news
+        .iter()
+        .map(|b| Some(b.publisher.as_str()))
+        .collect();
+    
+    let title: StringArray = news
+        .iter()
+        .map(|b| Some(b.title.as_str()))
+        .collect();
+
+    let image: StringArray = news
+        .iter()
+        .map(|b| b.image.as_deref())
+        .collect();
+
+    let site: StringArray = news
+        .iter()
+        .map(|b| Some(b.site.as_str()))
+        .collect();
+
+    let text: StringArray = news
+        .iter()
+        .map(|b| Some(b.text.as_str()))
+        .collect();
+
+    let url: StringArray = news
+        .iter()
+        .map(|b| Some(b.url.as_str()))
+        .collect();
+
+    let batch = RecordBatch::try_new(
+        Arc::new(schema),
+        vec![
+            Arc::new(symbol),
+            Arc::new(publishedDate),
+            Arc::new(publisher),
+            Arc::new(title),
+            Arc::new(image),
+            Arc::new(site),
+            Arc::new(text),
+            Arc::new(url),
+        ],
+    )?;
+
+    let mut buffer = Vec::new();
+    let props = WriterProperties::builder().build();
+    let mut writer = ArrowWriter::try_new(&mut buffer, batch.schema(), Some(props))?;
+    writer.write(&batch)?;
+    writer.close()?;
+
+    Ok(buffer)
+
 
 }

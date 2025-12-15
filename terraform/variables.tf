@@ -1,7 +1,7 @@
 variable "enable_ingestion" {
   description = "This is for the lambda eventwatch trigger"
-  type = bool
-  default = false
+  type        = bool
+  default     = false
 }
 
 variable "tiingo_api_key" {
@@ -14,3 +14,6 @@ variable "fmp_api_key" {
   sensitive = true
 }
 
+variable "tickers" {
+  type = list(string)
+}

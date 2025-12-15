@@ -4,20 +4,8 @@ use serde_json::Value;
 use std::sync::Arc;
 use chrono::{NaiveDate, Utc};
 
-use crate::models::BackfillEvent;
-
-//use fetcher::aws::{write_concurrent};
-//use fetcher::api::{Request, Response, backfill_quotes, fetch_batch_quotes};
-mod models;
-mod api;
-mod aws;
-mod app;
-mod config;
-
-// See:
-    // https://docs.aws.amazon.com/sdk-for-rust/latest/dg/rust_dynamodb_code_examples.html#serverless_examples
-    // https://docs.rs/aws-sdk-dynamodb/latest/aws_sdk_dynamodb/client/struct.Client.html#method.batch_write_item
-
+use fetcher::models::BackfillEvent;
+use fetcher::app;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
@@ -26,7 +14,7 @@ async fn main() -> Result<(), Error> {
         .map_err(|e| Error::from(e.to_string()))?;
     
     
-    println!("app loaded, running");
+    println!("app loaded, FMP running");
 
     // just ref, don't use Arc
     run(service_fn(|event| handler(event, &app))).await
@@ -59,18 +47,18 @@ async fn handler(
                 return Err("end must be before today".into())
             }
         }
-        app.run_ingest(start_date, payload.end_date).await?;
+        println!("fmp backfill not available yet");
+        //app.run_ingest(start_date, payload.end_date).await?;
     }
     else {
         //println!("implement run_minute");
-        app.run_minute().await?;
+        app.run_fmp_news().await?;
     }
 
-    Ok(serde_json::json!({"status": "success"}))
+    Ok(serde_json::json!({"status": "FMP success"}))
 }
 
 fn parse_date(s: &str) -> Result<NaiveDate, String> {
     NaiveDate::parse_from_str(s, "%Y-%m-%d")
-        .map_err(|_| format!("Invalid date format: {s}. Tiingo needs YYYY-MM-DD"))
+        .map_err(|_| format!("Invalid date format: {s}. FMP needs YYYY-MM-DD"))
 }
-

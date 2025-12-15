@@ -5,7 +5,7 @@ PY_DIR   := lambda/api
 DIST     := dist
 
 #RUST_TARGET=x86_64-unknown-linux-musl
-RUST_BIN    := fetcher
+RUST_BINS    := tiingo_iex fmp_news
 
 .PHONY: help build build-rust build-python package-python init plan deploy clean
 
@@ -24,11 +24,14 @@ $(DIST):
 build-rust:
 	@echo "Building Rust..."
 	
-	@cd $(RUST_DIR) && cargo lambda build --release --arm64 --bin $(RUST_BIN) --output-format zip
-	@echo "Checking build output…"
-	@ls -la target/lambda/$(RUST_BIN)/
-	@mkdir -p $(DIST)/fetcher
-	@cp target/lambda/$(RUST_BIN)/bootstrap.zip $(DIST)/fetcher/$(RUST_BIN).zip
+	@for bin in $(RUST_BINS); do \
+		echo "Building Rust Bin for $$bin"; \
+		(cd $(RUST_DIR) && cargo lambda build --release --arm64 --bin $$bin --output-format zip); \
+		echo "Checking build output for $$bin"; \
+		ls -la $(RUST_DIR)/target/lambda/$$bin/; \
+		mkdir -p $(DIST)/$$bin; \
+		cp target/lambda/$$bin/bootstrap.zip $(DIST)/$$bin/$$bin.zip; \
+	done
 
 
 ## switch to docker
@@ -41,10 +44,6 @@ build-rust:
 		bash -c "rustup target add $(RUST_TARGET) && cargo build --release --target $(RUST_TARGET) && cp target/$(RUST_TARGET)/release/$(RUST_BIN) /output/bootstrap"
 #	@$(MAKE) -s package-rust
 
-# now that we made it - zip it
-package-rust:
-	@echo "Zipping Rust -> $(DIST)/fetcher/fetcher.zip"
-	@cd $(DIST)/fetcher && zip -9 -q fetcher.zip bootstrap
 
 # AWS expects a zip
 build-python:

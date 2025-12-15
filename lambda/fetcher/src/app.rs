@@ -6,6 +6,8 @@ use futures::stream:: {self, StreamExt};
 use reqwest::Client as HttpClient;
 use aws_sdk_dynamodb::Client as DynamoClient;
 use aws_sdk_s3::Client as S3Client;
+use chrono::Utc;
+use chrono_tz::America::New_York;
 
 
 #[derive(Clone)]
@@ -34,6 +36,8 @@ impl App {
             config,
         })
     }
+
+    // Tiingo Methods
 
     pub async fn run_minute(&self) -> Result<()> {
 
@@ -170,4 +174,40 @@ impl App {
         
         Ok((ticker_bars, None))
     }
+
+    // FMP methods
+    pub async fn run_fmp_news(&self) -> Result<()> {
+        let tickers: Vec<String> = self.config.tickers.clone();
+
+        let mut all_news = Vec::new();
+        let today = Utc::now().with_timezone(&New_York).format("%Y-%m-%d").to_string();
+
+        // split tickers into batches of 10
+        
+        for batch in tickers.chunks(10) {
+            let symbols = batch.join(",");
+
+            let news = api::fmp::fetch_fmp_news(
+                &self.clients.http,
+                &symbols,
+                &today,
+                &self.config.fmp_api_key,
+            )
+            .await?;
+
+            all_news.extend(news);
+        }
+
+        if !all_news.is_empty() {
+            aws::s3::write_fmp_news_s3(
+                &self.clients.s3,
+                &self.config.s3_bucket,
+                &all_news,
+            )
+            .await?;
+        }
+
+        Ok(())
+    }
+
 }
