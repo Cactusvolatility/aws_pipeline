@@ -11,21 +11,127 @@ provider "aws" {
   region = "us-west-2"
 }
 
+# Budgeting
+
+resource "aws_budgets_budget" "monthly_cost" {
+  name         = "trading-system-monthly-budget"
+  budget_type  = "COST"
+  limit_amount = "50"
+  limit_unit   = "USD"
+  time_unit    = "MONTHLY"
+
+  cost_filter {
+    name = "Service"
+    values = [
+      "Amazon DynamoDB",
+      "Amazon Simple Storage Service",
+      "AWS Lambda",
+      "Amazon CloudWatch"
+    ]
+  }
+
+  notification {
+    comparison_operator        = "GREATER_THAN"
+    threshold                  = 80
+    threshold_type             = "PERCENTAGE"
+    notification_type          = "ACTUAL"
+    subscriber_email_addresses = var.email
+  }
+
+  notification {
+    comparison_operator        = "GREATER_THAN"
+    threshold                  = 100
+    threshold_type             = "PERCENTAGE"
+    notification_type          = "ACTUAL"
+    subscriber_email_addresses = var.email
+  }
+}
+
+resource "aws_budgets_budget" "dynamodb" {
+  name         = "dynamodb-budget"
+  budget_type  = "COST"
+  limit_amount = "10"
+  limit_unit   = "USD"
+  time_unit    = "MONTHLY"
+
+  cost_filter {
+    name   = "Service"
+    values = ["Amazon DynamoDB"]
+  }
+
+  notification {
+    comparison_operator        = "GREATER_THAN"
+    threshold                  = 80
+    threshold_type             = "PERCENTAGE"
+    notification_type          = "ACTUAL"
+    subscriber_email_addresses = var.email
+  }
+}
 
 # DynamoDB_state
 
 resource "aws_dynamodb_table" "ticker_state" {
-  name         = "ticker-ingestion-state"
+  name         = "ticker-statistics"
   billing_mode = "PAY_PER_REQUEST"
   hash_key     = "ticker"
+  range_key    = "window_timestamp"
 
   attribute {
     name = "ticker"
     type = "S"
   }
 
+  attribute {
+    name = "window_timestamp"
+    type = "N"
+  }
+
+  ttl {
+    attribute_name = "ttl"
+    enabled        = true
+  }
+
   tags = {
     Environment = "dev"
+  }
+}
+
+resource "aws_dynamodb_table" "news_articles" {
+  name         = "news-articles-tracking"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "article_id"
+
+  attribute {
+    name = "article_id"
+    type = "S"
+  }
+
+  attribute {
+    name = "ticker"
+    type = "S"
+  }
+
+  attribute {
+    name = "published_at"
+    type = "N"
+  }
+
+  # GSI for querying by ticker
+  global_secondary_index {
+    name            = "ticker-published-index"
+    hash_key        = "ticker"
+    range_key       = "published_at"
+    projection_type = "KEYS_ONLY"
+  }
+
+  ttl {
+    attribute_name = "ttl"
+    enabled        = true
+  }
+
+  tags = {
+    Environment = "dev"
+    Purpose     = "article-deduplication"
   }
 }
 
@@ -79,7 +185,9 @@ data "aws_iam_policy_document" "dynamodb_access" {
 
     resources = [
       aws_dynamodb_table.ticker_state.arn,
-      "${aws_dynamodb_table.ticker_state.arn}/index/*"
+      "${aws_dynamodb_table.ticker_state.arn}/index/*",
+      aws_dynamodb_table.news_articles.arn,
+      "${aws_dynamodb_table.news_articles.arn}/index/*"
     ]
   }
 }
@@ -128,7 +236,6 @@ resource "aws_lambda_function" "tiingo_iex" {
 
   environment {
     variables = {
-      DYNAMODB_TABLE = aws_dynamodb_table.ticker_state.name
       S3_BUCKET      = aws_s3_bucket.data_lake.id
       TICKERS        = join(",", var.tickers)
       BUILD_TIME     = timestamp()
@@ -154,7 +261,7 @@ resource "aws_lambda_function" "fmp_news" {
 
   environment {
     variables = {
-      DYNAMODB_TABLE = aws_dynamodb_table.ticker_state.name
+      DYNAMODB_TABLE = aws_dynamodb_table.news_articles.name
       S3_BUCKET      = aws_s3_bucket.data_lake.id
       TICKERS        = join(",", var.tickers)
       BUILD_TIME     = timestamp()

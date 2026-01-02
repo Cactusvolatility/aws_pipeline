@@ -17,3 +17,8 @@ variable "fmp_api_key" {
 variable "tickers" {
   type = list(string)
 }
+
+variable "email" {
+  type        = list(string)
+  description = "subscription email"
+}
