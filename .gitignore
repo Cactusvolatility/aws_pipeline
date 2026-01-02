@@ -27,3 +27,8 @@ dist/
 # JSON
 response.json
 *event.json
+
+# Dashboard and Jupyter
+*.ipynb
+*.csv
+dashboard/
