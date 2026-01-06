@@ -1,5 +1,11 @@
-variable "enable_ingestion" {
-  description = "This is for the lambda eventwatch trigger"
+variable "enable_iex" {
+  description = "This is for the iex eventwatch trigger"
+  type        = bool
+  default     = false
+}
+
+variable "enable_fmp" {
+  description = "This is for the fmp eventwatch trigger"
   type        = bool
   default     = false
 }
