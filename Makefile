@@ -1,18 +1,23 @@
 # dirs
 RUST_DIR := lambda/fetcher
-PY_DIR   := lambda/api
 # send to aws
 DIST     := dist
+
+#AWS creds
+AWS_REGION ?= us-west-2
+AWS_ACCOUNT_ID ?= $(shell aws sts get-caller-identity --query Account --output text)
+PY_5MIN_DIR := lambda/py-five-interval
+ECR_REPO_5MIN := process-5min-lambda
+TAG ?= latest
+
+ECR_URI_5MIN := $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com/$(ECR_REPO_5MIN):$(TAG)
 
 #RUST_TARGET=x86_64-unknown-linux-musl
 RUST_BINS    := tiingo_iex fmp_news
 
-.PHONY: help build build-rust build-python package-python init plan deploy clean
+.PHONY: build build-rust push-py-5min ecr-login build-py-5min init plan deploy clean tree
 
-help:
-	@echo "TODO"
-
-build: $(DIST) build-rust build-python
+build: $(DIST) build-rust
 	@echo "Done -> $(DIST)"
 	@$(MAKE) -s tree
 
@@ -21,6 +26,10 @@ $(DIST):
 
 # give AWS a binary for rust
 # issue with cargo-lambda?
+# my external cargo.toml is building target at root - fine
+# TODO:
+#	 port back to directory?
+#	 change in architecture - no longer additional modules
 build-rust:
 	@echo "Building Rust..."
 	
@@ -28,38 +37,20 @@ build-rust:
 		echo "Building Rust Bin for $$bin"; \
 		(cd $(RUST_DIR) && cargo lambda build --release --arm64 --bin $$bin --output-format zip); \
 		echo "Checking build output for $$bin"; \
-		ls -la $(RUST_DIR)/target/lambda/$$bin/; \
+		ls -la target/lambda/$$bin/; \
 		mkdir -p $(DIST)/$$bin; \
 		cp target/lambda/$$bin/bootstrap.zip $(DIST)/$$bin/$$bin.zip; \
 	done
 
+ecr-login:
+	aws ecr get-login-password --region $(AWS_REGION) | docker login --username AWS --password-stdin $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com
 
-## switch to docker
-#	@mkdir -p $(DIST)/fetcher
-#	@docker run --rm --platform linux/amd64 \
-		-v $(PWD)/$(RUST_DIR):/workspace \
-		-v $(PWD)/$(DIST)/fetcher:/output \
-		-w /workspace \
-		rust:1.70 \
-		bash -c "rustup target add $(RUST_TARGET) && cargo build --release --target $(RUST_TARGET) && cp target/$(RUST_TARGET)/release/$(RUST_BIN) /output/bootstrap"
-#	@$(MAKE) -s package-rust
+build-py-5min:
+	DOCKER_BUILDKIT=0 docker build -t $(ECR_REPO_5MIN):$(TAG) $(PY_5MIN_DIR)
 
-
-# AWS expects a zip
-build-python:
-	@echo "Packaging Python..."
-	@mkdir -p $(DIST)/api && rm -rf $(DIST)/api/*
-	@cp $(PY_DIR)/handler.py $(DIST)/api/
-# if there's requirements then install
-	@if [ -f "$(PY_DIR)/requirements.txt" ]; then \
-		echo "Installing Python deps..."; \
-		pip install -q -r $(PY_DIR)/requirements.txt -t $(DIST)/api; \
-	fi
-	@$(MAKE) -s package-python
-
-package-python:
-	@echo "Zipping Python -> $(DIST)/api/api.zip"
-	@cd $(DIST)/api && zip -9 -q -r api.zip .
+push-py-5min: ecr-login build-py-5min
+	docker tag $(ECR_REPO_5MIN):$(TAG) $(ECR_URI_5MIN)
+	docker push $(ECR_URI_5MIN)
 
 clean:
 	@rm -rf $(DIST)
