@@ -1,6 +1,10 @@
 import polars as pl
 import boto3
-from datetime import datetime, timezone
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo 
+
+from analysis import parse_dt_from_key, calc_metrics
+from io import write_aws
 
 s3_client = boto3.client('s3')
 dynamodb = boto3.resource('dynamodb')
@@ -11,27 +15,53 @@ State_table = 'ticker-statistics'
 def trigger_five_handler(event, context):
     print("trigger lambda for processing data")
 
-    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-
-    prefix = f'prices/tiingo_book/date=2026-01-05/'
+    # calculate timezones
+    NY = ZoneInfo("America/New_York")
+    now = datetime.now(tz=NY)
+    effective = now - timedelta(minutes=1)
+    start = effective.replace(minute=(effective.minute // 5) * 5, second=0, microsecond=0)
+    end = start + timedelta(minutes=5)
+    prefix = f"prices/tiingo_book/raw/date={start:%Y-%m-%d}/hour={start:%H}/" 
 
     resp = s3_client.list_objects_v2(
         Bucket = BUCKET,
         Prefix = prefix,
     )
 
-    if "Contents" not in resp:
-        print("No files found")
-        return {"files": []}
+    keys = [o["Key"] for o in resp.get("Contents", [])]
 
-    keys = [obj["Key"] for obj in resp["Contents"]]
-
-    print("Found files:")
+    window_keys = []
     for k in keys:
-        print(k)
+        dt = parse_dt_from_key(k).replace(tzinfo=NY)
+        # we make sure it's between the start + end
+        if start <= dt < end:
+            window_keys.append((k,dt))
+    
+    if not window_keys:
+        return {
+            "statusCode": 200,
+            "body": "no valid files in window"
+        }
+    
+    bucket_keys = [k for k,_ in window_keys]
+
+    s3_uris = [f"s3://{BUCKET}/{k}" for k in bucket_keys]
+    df = pl.read_parquet(s3_uris)
+
+    results = []
+
+    for ticker, g in df.group_by("ticker", maintain_order=True):
+        metrics["ticker"] = ticker
+        metrics["analysis_ts"] = now
+        metrics = calc_metrics(g.sort("timestamp"))
+        results.append(metrics)
+
+    features_df = pl.DataFrame(results)
+
+    write_aws(features_df, window_start=start)
+
 
     return {
-        "date": today,
-        "file_count": len(keys),
-        "files": keys,
+        'statusCode': 200,
+        'body': f'Processed {len(bucket_keys)} files, {len(df)} rows'
     }
