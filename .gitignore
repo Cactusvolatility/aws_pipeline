@@ -31,4 +31,5 @@ response.json
 # Dashboard and Jupyter
 *.ipynb
 *.csv
+*.DS_Store
 dashboard/
