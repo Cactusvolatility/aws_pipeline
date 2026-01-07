@@ -17,7 +17,7 @@ RUST_BINS    := tiingo_iex fmp_news
 
 .PHONY: build build-rust push-py-5min ecr-login build-py-5min init plan deploy clean tree
 
-build: $(DIST) build-rust
+build: $(DIST) build-rust build-py-5min push-py-5min
 	@echo "Done -> $(DIST)"
 	@$(MAKE) -s tree
 
