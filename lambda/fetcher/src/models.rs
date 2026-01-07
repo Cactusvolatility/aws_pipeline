@@ -64,7 +64,7 @@ pub struct TiingoBook {
     pub prevClose: f64,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct FmpNews {
     pub symbol: String,
     pub publishedDate:String,

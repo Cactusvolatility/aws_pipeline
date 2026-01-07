@@ -8,6 +8,7 @@ use aws_sdk_dynamodb::Client as DynamoClient;
 use aws_sdk_s3::Client as S3Client;
 use chrono::Utc;
 use chrono_tz::America::New_York;
+use std::collections::HashMap;
 
 
 #[derive(Clone)]
@@ -178,6 +179,9 @@ impl App {
     // FMP methods
     pub async fn run_fmp_news(&self) -> Result<()> {
         let tickers: Vec<String> = self.config.tickers.clone();
+        let dynamodb_table = self.config.dynamo_table
+            .as_ref()
+            .expect("DYNAMODB_TABLE must be set for fmp_news");
 
         let mut all_news = Vec::new();
         let today = Utc::now().with_timezone(&New_York).format("%Y-%m-%d").to_string();
@@ -198,11 +202,29 @@ impl App {
             all_news.extend(news);
         }
 
+        println!("Fetched {} total articles", all_news.len());
+        let mut unique_articles: HashMap<String, FmpNews> = HashMap::new();
+        for article in &all_news {
+            unique_articles
+                .entry(article.url.clone())
+                .or_insert(article.clone());
+        }
+        
+        let deduped_news: Vec<FmpNews> = unique_articles.into_values().collect();
+        println!("Deduplicated to {} unique articles", deduped_news.len());
+
         if !all_news.is_empty() {
             aws::s3::write_fmp_news_s3(
                 &self.clients.s3,
                 &self.config.s3_bucket,
                 &all_news,
+            )
+            .await?;
+
+            aws::dynamo::write_articles(
+                &self.clients.dynamo,
+                dynamodb_table,
+                &deduped_news,
             )
             .await?;
         }

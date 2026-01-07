@@ -146,11 +146,12 @@ pub async fn write_book_s3(
 
     let datetime = Utc::now().with_timezone(&New_York);
     let date = datetime.format("%Y-%m-%d");
+    let hour = datetime.format("%H");
     let file_ts = datetime.format("%Y%m%d_%H%M%S");
 
     let key = format!(
-        "prices/tiingo_book/date={}/raw/book_{}.parquet",
-        date, file_ts
+        "prices/tiingo_book/raw/date={}/hour={}/book_{}.parquet",
+        date, hour, file_ts
     );
 
     let parquet_bytes = serialize_books_parquet(books)?;
@@ -323,11 +324,12 @@ pub async fn write_fmp_news_s3(
     
     let datetime = Utc::now().with_timezone(&New_York);
     let date = datetime.format("%Y-%m-%d");
+    let hour = datetime.format("%H");
     let file_ts = datetime.format("%Y%m%d_%H%M%S");
     
     let key = format!(
-        "news/fmp/date={}/raw/news_{}.parquet",
-        date, file_ts
+        "news/fmp/raw/date={}/hour={}/news_{}.parquet",
+        date, hour, file_ts
     );
     
     let parquet_bytes = serialize_news_parquet(news)?;

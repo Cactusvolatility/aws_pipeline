@@ -8,7 +8,7 @@ pub struct Config {
         // no longer parse tickers since Tiingo can batch pull
         // FMP may need to parse tickers
     pub batch_tickers: String,
-    pub dynamo_table: String,
+    pub dynamo_table: Option<String>,
     pub s3_bucket: String,
     pub max_concurrency: usize,
     // FMP does not allow batch so we will still need concurrency there
@@ -22,7 +22,7 @@ impl Config {
             fmp_api_key: std::env::var("FMP_API_KEY")?,
             tickers: parse_tickers()?,
             batch_tickers: std::env::var("TICKERS")?,
-            dynamo_table: std::env::var("DYNAMODB_TABLE")?,
+            dynamo_table: std::env::var("DYNAMODB_TABLE").ok(),
             s3_bucket: std::env::var("S3_BUCKET")?,
             max_concurrency: 10,
         })

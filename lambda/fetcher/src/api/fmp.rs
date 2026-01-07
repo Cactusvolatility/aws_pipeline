@@ -13,6 +13,8 @@ pub async fn fetch_fmp_news(
         since we're only pulling for a few companies every 15 minutes just pull the top 100
         - news expires fast so if no signal change then we leave it at that
         - use backfill for model training
+        - FMP limits 250 per request but seems to have some auto pagination
+        - keep from - so that it prevents older info
      */
     let news: Vec<FmpNews> = client
         .get("https://financialmodelingprep.com/stable/news/stock")
@@ -20,7 +22,7 @@ pub async fn fetch_fmp_news(
             ("from", start_date),
             ("symbols", tickers),  // Batch query
             ("apikey", api_key),
-            ("limit", "100"),
+            ("limit", "250"),
             ("page", "0"),
         ])
         .send()
@@ -54,7 +56,7 @@ pub async fn backfill_fmp_news(
                     ("from", start_date),
                     ("symbols", ticker),
                     ("apikey", api_key),
-                    ("limit", "250"),
+                    ("limit", "100"),
                     ("page", &page.to_string()),
                 ]);
             
