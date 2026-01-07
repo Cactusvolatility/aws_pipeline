@@ -82,8 +82,8 @@ resource "aws_lambda_function" "py_process_5min" {
   function_name = "py-process-5min"
   role          = aws_iam_role.py_process_5min_role.arn
 
-  package_type = "Image"
-  image_uri    = "${aws_ecr_repository.process_5min.repository_url}:latest"
+  package_type     = "Image"
+  image_uri        = "${aws_ecr_repository.process_5min.repository_url}:latest"
   source_code_hash = timestamp()
 
   architectures = ["arm64"]

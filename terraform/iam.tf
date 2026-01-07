@@ -102,6 +102,14 @@ resource "aws_lambda_permission" "allow_eventbridge_fmp" {
   source_arn    = aws_cloudwatch_event_rule.fmp_fetch.arn
 }
 
+resource "aws_lambda_permission" "allow_eventbridge_py_process_5min" {
+  statement_id  = "AllowExecutionFromEventBridgePyProcess5min"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.py_process_5min.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.py_process_5min_schedule.arn
+}
+
 # Python lambdas---
 
 data "aws_iam_policy_document" "py_lambda_trust" {
@@ -124,11 +132,11 @@ resource "aws_iam_role_policy_attachment" "py_process_5min_basic" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
-# S3 read (adjust bucket + prefix as needed)
+# S3 read
 data "aws_iam_policy_document" "py_process_5min_s3" {
   statement {
-    effect  = "Allow"
-    actions = ["s3:ListBucket"]
+    effect    = "Allow"
+    actions   = ["s3:ListBucket"]
     resources = [aws_s3_bucket.data_lake.arn]
     condition {
       test     = "StringLike"
@@ -138,8 +146,8 @@ data "aws_iam_policy_document" "py_process_5min_s3" {
   }
 
   statement {
-    effect  = "Allow"
-    actions = ["s3:GetObject"]
+    effect    = "Allow"
+    actions   = ["s3:GetObject"]
     resources = ["${aws_s3_bucket.data_lake.arn}/prices/tiingo_book/*"]
   }
 }
@@ -150,7 +158,8 @@ resource "aws_iam_role_policy" "py_process_5min_s3" {
   policy = data.aws_iam_policy_document.py_process_5min_s3.json
 }
 
-# DynamoDB access (example table)
+# DynamoDB access
+
 data "aws_iam_policy_document" "py_process_5min_dynamo" {
   statement {
     effect = "Allow"

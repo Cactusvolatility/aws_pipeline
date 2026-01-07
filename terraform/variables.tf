@@ -10,6 +10,12 @@ variable "enable_fmp" {
   default     = false
 }
 
+variable "enable_py5" {
+  description = "This is for the py5 eventwatch trigger"
+  type        = bool
+  default     = false
+}
+
 variable "tiingo_api_key" {
   type      = string
   sensitive = true

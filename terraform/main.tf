@@ -87,11 +87,7 @@ resource "aws_cloudwatch_event_target" "tiingo_target" {
 resource "aws_cloudwatch_event_rule" "fmp_fetch" {
   name                = "fmp-news-fetch"
   description         = "Trigger news collection every hour"
-  schedule_expression = var.enable_fmp == true ? "cron(0 * * * ? *)" : "cron(0 0 31 2 ? *)"
-}
-
-output "iex_enabled" {
-  value = var.enable_iex
+  schedule_expression = var.enable_fmp ? "cron(0/15 14-20 ? * MON-FRI *)" : "cron(0 0 31 2 ? *)"
 }
 
 resource "aws_cloudwatch_event_target" "fmp_target" {
@@ -100,3 +96,14 @@ resource "aws_cloudwatch_event_target" "fmp_target" {
   arn       = aws_lambda_function.fmp_news.arn
 }
 
+resource "aws_cloudwatch_event_rule" "py_process_5min_schedule" {
+  name                = "py-process-5min"
+  description         = "Trigger Python 5-min analytics"
+  schedule_expression = var.enable_py5 ? "cron(*/5 14-20 ? * MON-FRI *)" : "cron(0 0 31 2 ? *)"
+}
+
+resource "aws_cloudwatch_event_target" "py_process_5min_target" {
+  rule      = aws_cloudwatch_event_rule.py_process_5min_schedule.name
+  target_id = "Py-Process-5min"
+  arn       = aws_lambda_function.py_process_5min.arn
+}
