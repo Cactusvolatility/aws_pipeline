@@ -52,10 +52,19 @@ def trigger_five_handler(event, context):
 
     for ticker, g in df.group_by("ticker", maintain_order=True):
         metrics = calc_metrics(g.sort("timestamp"))
+
+        if metrics is None:
+            print(f"Skipping {ticker} - invalid data")
+            continue
+
         metrics["ticker"] = ticker
         metrics["analysis_ts"] = now
         results.append(metrics)
 
+    if not results:
+        print("No valid metrics to write")
+        return
+    
     features_df = pl.DataFrame(results)
 
     write_aws(features_df, window_start=start)

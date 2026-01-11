@@ -1,5 +1,6 @@
 import polars as pl
 import boto3
+import math
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo 
 
@@ -18,8 +19,14 @@ def write_aws(features_df, window_start):
         }
 
         for k, v in row.items():
-            if k not in ("ticker", "analysis_ts"):
-                item[k] = float(v)
+            if k in ("ticker", "analysis_ts"):
+                continue
+            if v is None:
+                continue
+            fv = float(v)
+            if not math.isfinite(fv):
+                continue
+            item[k] = fv
 
         table.put_item(Item=item)
 
