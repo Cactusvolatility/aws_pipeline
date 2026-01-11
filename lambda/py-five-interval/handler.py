@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo 
 
 from analysis import parse_dt_from_key, calc_metrics
-from io import write_aws
+from aws_io import write_aws
 
 s3_client = boto3.client('s3')
 dynamodb = boto3.resource('dynamodb')
@@ -51,9 +51,9 @@ def trigger_five_handler(event, context):
     results = []
 
     for ticker, g in df.group_by("ticker", maintain_order=True):
+        metrics = calc_metrics(g.sort("timestamp"))
         metrics["ticker"] = ticker
         metrics["analysis_ts"] = now
-        metrics = calc_metrics(g.sort("timestamp"))
         results.append(metrics)
 
     features_df = pl.DataFrame(results)
