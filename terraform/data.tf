@@ -99,3 +99,18 @@ resource "aws_s3_bucket_versioning" "data_lake" {
     status = "Enabled"
   }
 }
+
+resource "aws_s3_bucket" "artifacts" {
+  bucket_prefix = "stock-artifacts-"
+  tags = {
+    Name        = "Glue Scripts and Artifacts"
+    Environment = "dev"
+  }
+}
+
+resource "aws_s3_bucket_versioning" "artifacts" {
+  bucket = aws_s3_bucket.artifacts.id
+  versioning_configuration {
+    status = "Enabled"
+  }
+}

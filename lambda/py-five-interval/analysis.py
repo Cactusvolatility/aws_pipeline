@@ -21,11 +21,15 @@ def _safe_float(x):
 
 def calc_metrics(df):
     # MID for state/volatility
+
+    # do I need to srt?
+    df = df.sort("timestamp")
+    
     ohlc = df.select(
         pl.col("open").first(),
         pl.col("high").max(),
         pl.col("low").min(),
-        pl.col("last").last().alias("close"),
+        pl.col("tngoLast").last().alias("close"),
     )
 
     open_ = _safe_float(ohlc["open"][0])
